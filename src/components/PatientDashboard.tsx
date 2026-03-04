@@ -59,6 +59,7 @@ interface Clinic {
   phone: string;
   contactNumber: string;
   operatingHours: string;
+  isRegistered?: boolean; // New field to distinguish partner vs public clinics
 }
 
 interface PatientDashboardProps {
@@ -83,14 +84,31 @@ function ClinicCard({
     : 0;
 
   return (
-    <Card className={`transition-all duration-200 hover:shadow-xl border-2 ${
-      clinic.status === 'closed' ? 'opacity-60' : 'hover:border-teal-200 dark:hover:border-teal-800'
+    <Card className={`transition-all duration-200 hover:shadow-xl overflow-hidden ${
+      !clinic.isRegistered
+        ? 'border-2 border-amber-300 dark:border-amber-700'
+        : `border-2 ${clinic.status === 'closed' ? 'opacity-60' : 'hover:border-teal-200 dark:hover:border-teal-800'}`
     }`}>
+      {/* "Not on ClinicQ" prominent top banner */}
+      {!clinic.isRegistered && (
+        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/40 border-b border-amber-300 dark:border-amber-700">
+          <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+          <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-widest">
+            Not on ClinicQ — View Only
+          </span>
+          <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+        </div>
+      )}
+
       <CardContent className="p-6">
         {/* Header Section */}
-        <div className="flex items-start justify-between mb-6">
+        <div className={`flex items-start justify-between ${!clinic.isRegistered ? 'mb-6' : 'mb-6'}`}>
           <div className="flex items-start space-x-4 flex-1">
-            <div className="w-20 h-20 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+            <div className={`w-20 h-20 rounded-xl flex items-center justify-center shadow-lg ${
+              clinic.isRegistered
+                ? 'bg-gradient-to-br from-teal-500 to-teal-600'
+                : 'bg-gradient-to-br from-amber-400 to-amber-500'
+            }`}>
               <Building className="w-10 h-10 text-white" />
             </div>
             <div className="flex-1">
@@ -121,8 +139,8 @@ function ClinicCard({
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-4 gap-3 mb-5">
+        {/* Stats Grid — 3 cols for public, 4 cols for registered */}
+        <div className={`grid gap-3 mb-5 ${clinic.isRegistered ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
             <Car className="w-5 h-5 text-muted-foreground mb-1.5" />
             <p className="text-xs text-muted-foreground mb-0.5">Distance</p>
@@ -138,47 +156,57 @@ function ClinicCard({
             <p className="text-xs text-muted-foreground mb-0.5">Rating</p>
             <p className="text-base font-bold">{clinic.rating.toFixed(1)}</p>
           </div>
-          <div className="flex flex-col items-center p-3 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
-            <Users className="w-5 h-5 text-teal-600 dark:text-teal-400 mb-1.5" />
-            <p className="text-xs text-muted-foreground mb-0.5">Queue</p>
-            <p className="text-base font-bold">{totalWaiting}</p>
-          </div>
+          {/* Queue stat — registered clinics only */}
+          {clinic.isRegistered && (
+            <div className="flex flex-col items-center p-3 bg-teal-50 dark:bg-teal-950/30 rounded-lg">
+              <Users className="w-5 h-5 text-teal-600 dark:text-teal-400 mb-1.5" />
+              <p className="text-xs text-muted-foreground mb-0.5">Queue</p>
+              <p className="text-base font-bold">{totalWaiting}</p>
+            </div>
+          )}
         </div>
 
-        {/* Doctors Preview Section */}
-        <div className="mb-5">
-          <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
-            {clinic.doctors.length} Available Doctors
-          </p>
-          <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide">
-            {clinic.doctors.slice(0, 3).map((doctor) => (
-              <div key={doctor.id} className="flex-shrink-0 p-3 bg-background border border-border rounded-lg min-w-[160px] hover:border-teal-300 dark:hover:border-teal-700 transition-colors">
-                <div className="flex items-center space-x-2 mb-2">
-                  <div className="w-8 h-8 bg-teal-100 dark:bg-teal-900/50 rounded-full flex items-center justify-center">
-                    <Stethoscope className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+        {/* Doctors Preview — registered clinics only */}
+        {clinic.isRegistered && (
+          <div className="mb-5">
+            <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+              {clinic.doctors.length} Available Doctors
+            </p>
+            <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide">
+              {clinic.doctors.slice(0, 3).map((doctor) => (
+                <div key={doctor.id} className="flex-shrink-0 p-3 bg-background border border-border rounded-lg min-w-[160px] hover:border-teal-300 dark:hover:border-teal-700 transition-colors">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="w-8 h-8 bg-teal-100 dark:bg-teal-900/50 rounded-full flex items-center justify-center">
+                      <Stethoscope className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <p className="text-xs font-medium truncate">{doctor.name.replace('Dr. ', '')}</p>
                   </div>
-                  <p className="text-xs font-medium truncate">{doctor.name.replace('Dr. ', '')}</p>
+                  <p className="text-xs text-muted-foreground truncate mb-1">{doctor.specialization}</p>
+                  <p className="text-xs text-muted-foreground">{doctor.queueCount} in queue</p>
                 </div>
-                <p className="text-xs text-muted-foreground truncate mb-1">{doctor.specialization}</p>
-                <p className="text-xs text-muted-foreground">{doctor.queueCount} in queue</p>
-              </div>
-            ))}
-            {clinic.doctors.length > 3 && (
-              <div className="flex-shrink-0 p-3 bg-muted/30 border border-dashed border-border rounded-lg min-w-[100px] flex items-center justify-center">
-                <p className="text-xs text-muted-foreground font-medium">+{clinic.doctors.length - 3} more</p>
-              </div>
-            )}
+              ))}
+              {clinic.doctors.length > 3 && (
+                <div className="flex-shrink-0 p-3 bg-muted/30 border border-dashed border-border rounded-lg min-w-[100px] flex items-center justify-center">
+                  <p className="text-xs text-muted-foreground font-medium">+{clinic.doctors.length - 3} more</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Wait Time Bar */}
-        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-950/30 dark:to-cyan-950/30 rounded-lg mb-4 border border-teal-100 dark:border-teal-900">
-          <div className="flex items-center space-x-2">
-            <Clock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-            <span className="text-sm font-medium text-teal-900 dark:text-teal-100">Est. Wait Time:</span>
+        {/* Wait Time Bar — registered clinics only */}
+        {clinic.isRegistered && (
+          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-950/30 dark:to-cyan-950/30 rounded-lg mb-4 border border-teal-100 dark:border-teal-900">
+            <div className="flex items-center space-x-2">
+              <Clock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+              <span className="text-sm font-medium text-teal-900 dark:text-teal-100">Est. Wait Time:</span>
+            </div>
+            <span className="text-lg font-bold text-teal-700 dark:text-teal-300">{avgWaitTime} min</span>
           </div>
-          <span className="text-lg font-bold text-teal-700 dark:text-teal-300">{avgWaitTime} min</span>
-        </div>
+        )}
+
+        {/* Spacer for public clinics so actions sit cleanly */}
+        {!clinic.isRegistered && <div className="mb-4" />}
 
         {/* Actions */}
         <div className="flex items-center space-x-3">
@@ -194,15 +222,27 @@ function ClinicCard({
           >
             {clinic.status === 'open' ? '● Open Now' : clinic.status === 'busy' ? '● Busy' : '● Closed'}
           </Badge>
-          <Button
-            size="lg"
-            disabled={clinic.status === 'closed'}
-            className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold h-11 shadow-md hover:shadow-lg transition-all"
-            onClick={() => onViewDetails(clinic)}
-          >
-            View Doctors & Book
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          {clinic.isRegistered ? (
+            <Button
+              size="lg"
+              disabled={clinic.status === 'closed'}
+              className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold h-11 shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+              onClick={() => onViewDetails(clinic)}
+            >
+              View Doctors & Book
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              variant="outline"
+              className="flex-1 border-amber-400 text-amber-800 dark:text-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/30 font-semibold h-11 transition-all"
+              onClick={() => onViewDetails(clinic)}
+            >
+              View Clinic Info
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -225,6 +265,7 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
 
   // Mock clinics with doctors
   const [nearbyClinics] = useState<Clinic[]>([
+    // Registered ClinicQ Partner Clinics
     {
       id: '1',
       name: 'HealthFirst Medical Center',
@@ -236,6 +277,7 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
       phone: '+1-555-0100',
       contactNumber: '+1-555-0100',
       operatingHours: 'Mon-Fri: 8AM-6PM',
+      isRegistered: true,
       doctors: [
         { id: 'd1', name: 'Dr. Sarah Johnson', specialization: 'General Practice', availability: '9AM-5PM', queueCount: 3, avgWaitTime: 15 },
         { id: 'd2', name: 'Dr. Michael Chen', specialization: 'Cardiology', availability: '10AM-4PM', queueCount: 2, avgWaitTime: 20 },
@@ -253,6 +295,7 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
       phone: '+1-555-0101',
       contactNumber: '+1-555-0101',
       operatingHours: 'Mon-Sat: 9AM-7PM',
+      isRegistered: true,
       doctors: [
         { id: 'd4', name: 'Dr. Robert Wilson', specialization: 'Pediatrics', availability: '9AM-6PM', queueCount: 5, avgWaitTime: 30 },
         { id: 'd5', name: 'Dr. Lisa Anderson', specialization: 'Family Medicine', availability: '10AM-5PM', queueCount: 4, avgWaitTime: 25 }
@@ -269,11 +312,27 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
       phone: '+1-555-0102',
       contactNumber: '+1-555-0102',
       operatingHours: 'Mon-Fri: 7AM-8PM',
+      isRegistered: true,
       doctors: [
         { id: 'd6', name: 'Dr. James Miller', specialization: 'Internal Medicine', availability: '8AM-6PM', queueCount: 2, avgWaitTime: 12 },
         { id: 'd7', name: 'Dr. Maria Rodriguez', specialization: 'Endocrinology', availability: '9AM-4PM', queueCount: 1, avgWaitTime: 15 },
         { id: 'd8', name: 'Dr. David Lee', specialization: 'Orthopedics', availability: '10AM-5PM', queueCount: 3, avgWaitTime: 20 }
       ]
+    },
+    // Public Clinics from Map API (Not on ClinicQ)
+    {
+      id: 'pub1',
+      name: 'St. Mary\'s Community Hospital',
+      address: '234 Church St, Central District',
+      distance: 1.8,
+      travelTime: 18,
+      rating: 4.7,
+      status: 'open',
+      phone: '+1-555-0200',
+      contactNumber: '+1-555-0200',
+      operatingHours: 'Open 24/7',
+      isRegistered: false,
+      doctors: []
     },
     {
       id: '4',
@@ -286,10 +345,39 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
       phone: '+1-555-0103',
       contactNumber: '+1-555-0103',
       operatingHours: 'Daily: 8AM-9PM',
+      isRegistered: true,
       doctors: [
         { id: 'd9', name: 'Dr. Amanda White', specialization: 'General Medicine', availability: '8AM-5PM', queueCount: 4, avgWaitTime: 22 },
         { id: 'd10', name: 'Dr. Thomas Garcia', specialization: 'Neurology', availability: '9AM-6PM', queueCount: 2, avgWaitTime: 18 }
       ]
+    },
+    {
+      id: 'pub2',
+      name: 'Westside Medical Group',
+      address: '567 West Ave, Westside',
+      distance: 4.2,
+      travelTime: 30,
+      rating: 4.3,
+      status: 'busy',
+      phone: '+1-555-0201',
+      contactNumber: '+1-555-0201',
+      operatingHours: 'Mon-Fri: 8AM-6PM',
+      isRegistered: false,
+      doctors: []
+    },
+    {
+      id: 'pub3',
+      name: 'Greenfield Urgent Care',
+      address: '890 Green Rd, Greenfield',
+      distance: 6.5,
+      travelTime: 40,
+      rating: 4.2,
+      status: 'open',
+      phone: '+1-555-0202',
+      contactNumber: '+1-555-0202',
+      operatingHours: 'Daily: 7AM-11PM',
+      isRegistered: false,
+      doctors: []
     }
   ]);
 
@@ -685,7 +773,14 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
                   <Building className="w-10 h-10 text-white" />
                 </div>
                 <div>
-                  <DialogTitle className="text-3xl mb-2">{selectedClinic?.name}</DialogTitle>
+                  <div className="flex items-center space-x-3 mb-2">
+                    <DialogTitle className="text-3xl">{selectedClinic?.name}</DialogTitle>
+                    {!selectedClinic?.isRegistered && (
+                      <Badge className="bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700" variant="outline">
+                        Not on ClinicQ
+                      </Badge>
+                    )}
+                  </div>
                   <DialogDescription className="flex items-center text-base">
                     <MapPin className="w-5 h-5 mr-2" />
                     {selectedClinic?.address}
@@ -696,6 +791,15 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
           </DialogHeader>
           
           <div className="space-y-8 py-2">
+            {/* Alert for Public Clinics */}
+            {!selectedClinic?.isRegistered && (
+              <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
+                <AlertDescription className="text-amber-800 dark:text-amber-200">
+                  This clinic is not a registered ClinicQ partner. Booking and queue tracking features are not available for this location. Please contact the clinic directly to schedule an appointment.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             {/* Clinic Info - More prominent */}
             <div className="grid grid-cols-2 gap-4 p-6 bg-gradient-to-br from-muted/50 to-muted rounded-xl border-2 border-border">
               <div className="flex items-center space-x-3">
@@ -737,50 +841,52 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
             </div>
 
             {/* Doctors List - More subtle */}
-            <div>
-              <div className="mb-4 pb-3 border-b border-border">
-                <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wide">
-                  Available Doctors ({selectedClinic?.doctors.length})
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">Select a doctor to join their queue</p>
-              </div>
-              <div className="space-y-2">
-                {selectedClinic?.doctors.map((doctor) => (
-                  <div 
-                    key={doctor.id} 
-                    className="flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border rounded-lg transition-all group"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-teal-100/50 dark:bg-teal-900/30 rounded-full flex items-center justify-center group-hover:bg-teal-100 dark:group-hover:bg-teal-900/50 transition-colors">
-                        <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+            {selectedClinic?.isRegistered && selectedClinic.doctors.length > 0 && (
+              <div>
+                <div className="mb-4 pb-3 border-b border-border">
+                  <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wide">
+                    Available Doctors ({selectedClinic.doctors.length})
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">Select a doctor to join their queue</p>
+                </div>
+                <div className="space-y-2">
+                  {selectedClinic.doctors.map((doctor) => (
+                    <div 
+                      key={doctor.id} 
+                      className="flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border rounded-lg transition-all group"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-teal-100/50 dark:bg-teal-900/30 rounded-full flex items-center justify-center group-hover:bg-teal-100 dark:group-hover:bg-teal-900/50 transition-colors">
+                          <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm">{doctor.name}</h4>
+                          <p className="text-xs text-muted-foreground">{doctor.specialization}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            <Clock className="w-3 h-3 inline mr-1" />
+                            {doctor.availability}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-medium text-sm">{doctor.name}</h4>
-                        <p className="text-xs text-muted-foreground">{doctor.specialization}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          <Clock className="w-3 h-3 inline mr-1" />
-                          {doctor.availability}
-                        </p>
+                      <div className="flex items-center space-y-0 space-x-4">
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">In Queue</p>
+                          <p className="text-sm font-semibold">{doctor.queueCount} patients</p>
+                          <p className="text-xs text-muted-foreground">~{doctor.avgWaitTime} min</p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className="bg-teal-600 hover:bg-teal-700 text-white"
+                          onClick={() => handleJoinQueue(doctor, selectedClinic!)}
+                        >
+                          Join Queue
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center space-y-0 space-x-4">
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">In Queue</p>
-                        <p className="text-sm font-semibold">{doctor.queueCount} patients</p>
-                        <p className="text-xs text-muted-foreground">~{doctor.avgWaitTime} min</p>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        className="bg-teal-600 hover:bg-teal-700 text-white"
-                        onClick={() => handleJoinQueue(doctor, selectedClinic!)}
-                      >
-                        Join Queue
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
