@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Avatar, AvatarFallback, Switch, Label, Input, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui';
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Avatar, AvatarFallback, Switch, Label, Input, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -537,31 +537,31 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {doctors.map((doctor) => {
                       const doctorCurrentPatient = patients.find(p => p.doctorId === doctor.id && p.status === 'current');
                       return (
-                        <div key={doctor.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50">
+                        <div key={doctor.id} className="flex items-center justify-between p-5 border-2 border-border rounded-xl hover:border-teal-200 dark:hover:border-teal-800 hover:shadow-md transition-all bg-muted/30">
                           <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900 rounded-full flex items-center justify-center">
-                              <Stethoscope className="w-6 h-6 text-teal-600 dark:text-teal-300" />
+                            <div className="w-14 h-14 bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900 dark:to-teal-800 rounded-xl flex items-center justify-center shadow-sm">
+                              <Stethoscope className="w-7 h-7 text-teal-600 dark:text-teal-300" />
                             </div>
                             <div>
-                              <h4 className="font-semibold">{doctor.name}</h4>
+                              <h4 className="font-semibold text-base">{doctor.name}</h4>
                               <p className="text-sm text-muted-foreground">{doctor.specialization}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                <Clock className="w-3 h-3 inline mr-1" />
+                              <p className="text-xs text-muted-foreground mt-1.5 flex items-center">
+                                <Clock className="w-3.5 h-3.5 inline mr-1.5" />
                                 {doctor.availability}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-4">
                             <div className="text-right">
-                              <p className="text-sm text-muted-foreground">Active Queue</p>
-                              <p className="text-lg font-bold">{doctor.activeQueueCount}</p>
+                              <p className="text-xs text-muted-foreground uppercase tracking-wide">Active Queue</p>
+                              <p className="text-2xl font-bold">{doctor.activeQueueCount}</p>
                             </div>
                             {doctorCurrentPatient && (
-                              <Badge className="bg-teal-600 text-white">
+                              <Badge className="bg-teal-600 text-white px-3 py-1">
                                 Now: {doctorCurrentPatient.name}
                               </Badge>
                             )}
@@ -652,17 +652,16 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
               {/* Doctor selector */}
               <div className="flex items-center space-x-4 p-4 bg-muted rounded-lg">
                 <Label className="text-sm font-medium">Select Doctor:</Label>
-                <Select value={selectedDoctorId || ''} onValueChange={setSelectedDoctorId}>
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="All Doctors" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Doctors</SelectItem>
-                    {doctors.map(doctor => (
-                      <SelectItem key={doctor.id} value={doctor.id}>{doctor.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select 
+                  value={selectedDoctorId || ''} 
+                  onChange={(e) => setSelectedDoctorId(e.target.value || null)}
+                  className="px-3 py-2 border border-border rounded-md bg-background"
+                >
+                  <option value="">All Doctors</option>
+                  {doctors.map(doctor => (
+                    <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
+                  ))}
+                </select>
                 {selectedDoctorId && (
                   <Button 
                     variant="ghost" 
@@ -888,18 +887,19 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="walkInDoctor">Assign to Doctor</Label>
-              <Select value={walkInDoctorId} onValueChange={setWalkInDoctorId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a doctor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {doctors.map(doctor => (
-                    <SelectItem key={doctor.id} value={doctor.id}>
-                      {doctor.name} - {doctor.specialization}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select 
+                id="walkInDoctor"
+                value={walkInDoctorId} 
+                onChange={(e) => setWalkInDoctorId(e.target.value)}
+                className="w-full px-3 py-2 border border-border rounded-md bg-background"
+              >
+                <option value="">Select a doctor</option>
+                {doctors.map(doctor => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctor.name} - {doctor.specialization}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <DialogFooter>
