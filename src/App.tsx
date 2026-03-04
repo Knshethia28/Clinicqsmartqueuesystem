@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Login } from './components/Login';
-import { Dashboard } from './components/Dashboard';
+import { Dashboard } from './components/ClinicDashboard';
 import { PatientDashboard } from './components/PatientDashboard';
 
 interface RegisteredUser {
