@@ -679,105 +679,168 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
               </div>
 
               {/* Doctor selector */}
-              <div className="flex items-center space-x-4 p-4 bg-muted rounded-lg">
-                <Label className="text-sm font-medium">Select Doctor:</Label>
-                <select 
-                  value={selectedDoctorId || ''} 
-                  onChange={(e) => setSelectedDoctorId(e.target.value || null)}
-                  className="px-3 py-2 border border-border rounded-md bg-background"
-                >
-                  <option value="">All Doctors</option>
-                  {doctors.map(doctor => (
-                    <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
-                  ))}
-                </select>
-                {selectedDoctorId && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setSelectedDoctorId(null)}
-                  >
-                    Clear Filter
-                  </Button>
-                )}
+              <div className="flex flex-wrap items-center gap-2 p-2 bg-muted/50 rounded-xl border border-border">
+                <span className="text-sm font-medium text-muted-foreground ml-2 mr-1">Select Doctor:</span>
+                <div className="flex items-center gap-2 flex-wrap flex-1">
+                  {doctors.map(doctor => {
+                    const isActive = (selectedDoctorId || doctors[0]?.id) === doctor.id;
+                    return (
+                      <Button
+                        key={doctor.id}
+                        variant={isActive ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedDoctorId(doctor.id)}
+                        className={`rounded-full px-4 transition-all ${
+                          isActive 
+                            ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm border-transparent' 
+                            : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                        }`}
+                      >
+                        <Stethoscope className="w-3.5 h-3.5 mr-2" />
+                        {doctor.name}
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
 
-              {(selectedDoctorId ? [doctors.find(d => d.id === selectedDoctorId)!] : doctors).map(doctor => {
+              {[doctors.find(d => d.id === (selectedDoctorId || doctors[0]?.id))].filter((d): d is Doctor => d !== undefined).map(doctor => {
                 const doctorPatients = getDoctorPatients(doctor.id);
                 const currentPatient = doctorPatients.find(p => p.status === 'current');
                 const waitingPatientsList = doctorPatients.filter(p => p.status === 'waiting');
+                const completedPatientsList = doctorPatients.filter(p => p.status === 'completed');
+                const totalToday = doctorPatients.length;
 
                 return (
-                  <Card key={doctor.id}>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-teal-100 dark:bg-teal-900 rounded-full flex items-center justify-center">
-                            <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-300" />
+                  <div key={doctor.id} className="space-y-4 mb-8">
+                    <div className="flex items-center justify-between pb-2 border-b border-border">
+                      <h3 className="text-xl font-bold">{doctor.name}</h3>
+                      <span className="text-sm text-muted-foreground">{doctor.specialization}</span>
+                    </div>
+
+                    {/* Stats Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <Card className="shadow-sm">
+                        <CardContent className="p-4 flex items-center space-x-4">
+                          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-500 rounded-xl">
+                            <Clock className="w-6 h-6" />
                           </div>
                           <div>
-                            <CardTitle>{doctor.name}</CardTitle>
-                            <CardDescription>{doctor.specialization} • {doctor.activeQueueCount} in queue</CardDescription>
+                            <p className="text-sm text-muted-foreground">Waiting</p>
+                            <p className="text-2xl font-bold">{waitingPatientsList.length}</p>
                           </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="shadow-sm">
+                        <CardContent className="p-4 flex items-center space-x-4">
+                          <div className="p-3 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-500 rounded-xl">
+                            <Activity className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">In Consultation</p>
+                            <p className="text-2xl font-bold">{currentPatient ? 1 : 0}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="shadow-sm">
+                        <CardContent className="p-4 flex items-center space-x-4">
+                          <div className="p-3 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-500 rounded-xl">
+                            <CheckCircle2 className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Completed</p>
+                            <p className="text-2xl font-bold">{completedPatientsList.length}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="shadow-sm">
+                        <CardContent className="p-4 flex items-center space-x-4">
+                          <div className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-500 rounded-xl">
+                            <Activity className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Today</p>
+                            <p className="text-2xl font-bold">{totalToday}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Main Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+                      {/* Left: In Consultation */}
+                      <Card className="border-green-200 dark:border-green-800 shadow-sm overflow-hidden">
+                        <div className="bg-green-50 dark:bg-green-900/20 px-4 py-3 flex items-center space-x-2 border-b border-green-100 dark:border-green-800/50">
+                          <Activity className="w-4 h-4 text-green-700 dark:text-green-500" />
+                          <span className="font-semibold text-green-800 dark:text-green-400">In Consultation</span>
                         </div>
-                        {currentPatient && (
-                          <Button
-                            onClick={() => handleNextPatient(doctor.id)}
-                            className="bg-teal-600 hover:bg-teal-700 text-white"
-                          >
-                            Next Patient
-                            <ArrowRight className="w-4 h-4 ml-2" />
-                          </Button>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {currentPatient && (
-                        <div className="mb-4 p-4 bg-teal-50 dark:bg-teal-950 border border-teal-200 dark:border-teal-800 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <Avatar className="w-10 h-10">
-                                <AvatarFallback className="bg-teal-200 dark:bg-teal-800">
+                        <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                          {currentPatient ? (
+                            <div className="w-full text-center space-y-4">
+                              <Avatar className="w-16 h-16 mx-auto">
+                                <AvatarFallback className="bg-green-100 text-green-700 text-xl">
                                   {currentPatient.name.split(' ').map(n => n.charAt(0)).join('')}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
-                                <h4 className="font-semibold text-teal-900 dark:text-teal-100">{currentPatient.name}</h4>
-                                <p className="text-sm text-teal-700 dark:text-teal-300">Token: {currentPatient.token} • {currentPatient.checkedIn}</p>
+                                <h4 className="font-bold text-lg">{currentPatient.name}</h4>
+                                <p className="text-sm text-muted-foreground">Token: {currentPatient.token}</p>
                               </div>
+                              <Button
+                                onClick={() => handleNextPatient(doctor.id)}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-4"
+                              >
+                                Complete & Call Next
+                              </Button>
                             </div>
-                            <Badge className="bg-teal-600 text-white">Current</Badge>
-                          </div>
-                        </div>
-                      )}
+                          ) : (
+                            <div className="text-center space-y-4">
+                              <Activity className="w-12 h-12 text-muted-foreground opacity-20 mx-auto" />
+                              <p className="text-sm text-muted-foreground font-medium">No active consultation</p>
+                              <Button
+                                onClick={() => handleNextPatient(doctor.id)}
+                                disabled={waitingPatientsList.length === 0}
+                                className="bg-blue-600 hover:bg-blue-700 text-white mt-2"
+                              >
+                                Call Next Patient
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
 
-                      {waitingPatientsList.length > 0 ? (
-                        <div className="border border-border rounded-lg overflow-hidden">
-                          <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                          >
-                            <SortableContext
-                              items={waitingPatientsList.map(p => p.id)}
-                              strategy={verticalListSortingStrategy}
-                            >
-                              {waitingPatientsList.map((patient, index) => (
-                                <SortablePatientItem key={patient.id} patient={patient} index={index} />
-                              ))}
-                            </SortableContext>
-                          </DndContext>
-                        </div>
-                      ) : (
-                        !currentPatient && (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                            <p>No patients in queue</p>
-                          </div>
-                        )
-                      )}
-                    </CardContent>
-                  </Card>
+                      {/* Right: Waiting Queue */}
+                      <Card className="lg:col-span-2 shadow-sm min-h-[250px]">
+                        <CardHeader className="pb-3 border-b border-border">
+                          <CardTitle className="text-base">Waiting Queue ({waitingPatientsList.length})</CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                          {waitingPatientsList.length > 0 ? (
+                            <div className="overflow-hidden">
+                              <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleDragEnd}
+                              >
+                                <SortableContext
+                                  items={waitingPatientsList.map(p => p.id)}
+                                  strategy={verticalListSortingStrategy}
+                                >
+                                  {waitingPatientsList.map((patient, index) => (
+                                    <SortablePatientItem key={patient.id} patient={patient} index={index} />
+                                  ))}
+                                </SortableContext>
+                              </DndContext>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center min-h-[200px] text-muted-foreground">
+                              <p className="text-sm font-medium">Queue is empty</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
