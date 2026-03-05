@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Avatar, AvatarFallback, Alert, AlertDescription, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Switch } from '../ui';
+import { toast } from 'sonner@2.0.3';
 import { 
   User, 
   Calendar, 
@@ -20,13 +21,27 @@ import {
   Settings,
   Moon,
   Sun,
-  ArrowRight
+  ArrowRight,
+  Menu,
+  X,
+  ChevronLeft
 } from 'lucide-react';
 
 interface User {
   username: string;
   role: string;
   fullName?: string;
+}
+
+interface Appointment {
+  id: string;
+  doctorId: string;
+  doctorName: string;
+  clinicId: string;
+  clinicName: string;
+  date: string;
+  time: string;
+  status: 'booked' | 'checked-in' | 'completed' | 'cancelled';
 }
 
 interface QueueStatus {
@@ -94,7 +109,7 @@ function ClinicCard({
         <div className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/40 border-b border-amber-300 dark:border-amber-700">
           <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
           <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 uppercase tracking-widest">
-            Not on ClinicQ — View Only
+            Not on ClinicQ 
           </span>
           <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
         </div>
@@ -140,7 +155,7 @@ function ClinicCard({
         </div>
 
         {/* Stats Grid — 3 cols for public, 4 cols for registered */}
-        <div className={`grid gap-3 mb-5 ${clinic.isRegistered ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        <div className={`grid gap-3 mb-5 ${clinic.isRegistered ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
           <div className="flex flex-col items-center p-3 bg-muted/50 rounded-lg">
             <Car className="w-5 h-5 text-muted-foreground mb-1.5" />
             <p className="text-xs text-muted-foreground mb-0.5">Distance</p>
@@ -209,9 +224,9 @@ function ClinicCard({
         {!clinic.isRegistered && <div className="mb-4" />}
 
         {/* Actions */}
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 space-x-0">
           <Badge 
-            className={`text-xs px-3 py-1 ${
+            className={`text-xs px-3 py-1 self-start sm:self-auto ${
               clinic.status === 'open' 
                 ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-200 dark:border-green-800' 
                 : clinic.status === 'busy'
@@ -226,7 +241,7 @@ function ClinicCard({
             <Button
               size="lg"
               disabled={clinic.status === 'closed'}
-              className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold h-11 shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+              className="w-full sm:flex-1 bg-teal-600 hover:bg-teal-700 text-white font-semibold h-11 shadow-md hover:shadow-lg transition-all disabled:opacity-50"
               onClick={() => onViewDetails(clinic)}
             >
               View Doctors & Book
@@ -236,7 +251,7 @@ function ClinicCard({
             <Button
               size="lg"
               variant="outline"
-              className="flex-1 border-amber-400 text-amber-800 dark:text-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/30 font-semibold h-11 transition-all"
+              className="w-full sm:flex-1 border-amber-400 text-amber-800 dark:text-amber-300 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/30 font-semibold h-11 transition-all"
               onClick={() => onViewDetails(clinic)}
             >
               View Clinic Info
@@ -250,15 +265,22 @@ function ClinicCard({
 }
 
 export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'home' | 'clinics' | 'queue' | 'settings'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'clinics' | 'appointments' | 'queue' | 'settings'>('home');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [queueStatus, setQueueStatus] = useState<QueueStatus>({
     isInQueue: false,
     status: 'not-checked-in'
   });
   
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
+  const [selectedDoctorForBooking, setSelectedDoctorForBooking] = useState<Doctor | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  
   const [showClinicDetails, setShowClinicDetails] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [favoriteClinicIds, setFavoriteClinicIds] = useState<string[]>(['1', '2']);
@@ -408,6 +430,8 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
 
   const handleViewClinicDetails = (clinic: Clinic) => {
     setSelectedClinic(clinic);
+    setSelectedDoctorForBooking(null);
+    setSelectedSlot(null);
     setShowClinicDetails(true);
   };
 
@@ -441,9 +465,17 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header - Fixed */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border px-6 py-4">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border px-4 md:px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
+              {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
             <div className="flex items-center space-x-2">
               <div className="p-2 bg-teal-600 rounded-lg">
                 <Stethoscope className="w-5 h-5 text-white" />
@@ -477,9 +509,17 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
         </div>
       </header>
 
-      <div className="flex pt-16">
-        {/* Sidebar - Fixed */}
-        <aside className="fixed left-0 top-16 bottom-0 w-64 bg-card border-r border-border overflow-y-auto">
+      <div className="flex pt-16 h-[calc(100vh)]">
+        {/* Sidebar Overlay for mobile */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-20 md:hidden" 
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+        
+        {/* Sidebar */}
+        <aside className={`fixed md:sticky top-16 left-0 bottom-0 w-64 h-[calc(100vh-4rem)] bg-card border-r border-border overflow-y-auto transition-transform duration-300 z-30 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
           <nav className="p-4">
             <div className="space-y-2">
               <Button
@@ -489,7 +529,7 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
                     ? 'bg-teal-600 hover:bg-teal-700 text-white' 
                     : ''
                 }`}
-                onClick={() => setActiveTab('home')}
+                onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); }}
               >
                 <Home className="w-4 h-4 mr-2" />
                 Home
@@ -501,10 +541,22 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
                     ? 'bg-teal-600 hover:bg-teal-700 text-white' 
                     : ''
                 }`}
-                onClick={() => setActiveTab('clinics')}
+                onClick={() => { setActiveTab('clinics'); setIsSidebarOpen(false); }}
               >
                 <Building className="w-4 h-4 mr-2" />
                 Find Clinics
+              </Button>
+              <Button
+                variant={activeTab === 'appointments' ? 'default' : 'ghost'}
+                className={`w-full justify-start ${
+                  activeTab === 'appointments' 
+                    ? 'bg-teal-600 hover:bg-teal-700 text-white' 
+                    : ''
+                }`}
+                onClick={() => { setActiveTab('appointments'); setIsSidebarOpen(false); }}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                My Appointments
               </Button>
               <Button
                 variant={activeTab === 'queue' ? 'default' : 'ghost'}
@@ -513,7 +565,7 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
                     ? 'bg-teal-600 hover:bg-teal-700 text-white' 
                     : ''
                 }`}
-                onClick={() => setActiveTab('queue')}
+                onClick={() => { setActiveTab('queue'); setIsSidebarOpen(false); }}
               >
                 <Users className="w-4 h-4 mr-2" />
                 My Queue
@@ -525,7 +577,7 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
                     ? 'bg-teal-600 hover:bg-teal-700 text-white' 
                     : ''
                 }`}
-                onClick={() => setActiveTab('settings')}
+                onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); }}
               >
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
@@ -535,7 +587,7 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
         </aside>
 
         {/* Main Content - Scrollable */}
-        <main className="flex-1 ml-64 p-6 overflow-y-auto">
+        <main className="flex-1 w-full md:w-[calc(100%-16rem)] p-4 md:p-6 overflow-y-auto">
           {activeTab === 'home' && (
             <div className="space-y-6">
               {/* Welcome Banner */}
@@ -579,7 +631,7 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <p className="text-sm text-teal-700 dark:text-teal-300">Token</p>
                         <p className="text-xl font-bold text-teal-900 dark:text-teal-100">{queueStatus.token}</p>
@@ -656,6 +708,97 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
             </div>
           )}
 
+          {activeTab === 'appointments' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">My Appointments</h2>
+                <p className="text-sm text-muted-foreground">Manage your booked slots and check-in</p>
+              </div>
+
+              {appointments.length > 0 ? (
+                <div className="space-y-4">
+                  {appointments.map((apt) => (
+                    <Card key={apt.id} className="overflow-hidden">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between p-6">
+                        <div className="flex items-start space-x-4 mb-4 md:mb-0">
+                          <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900 rounded-full flex items-center justify-center shrink-0">
+                            <Calendar className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-lg">{apt.doctorName}</h3>
+                            <p className="text-sm text-muted-foreground mb-1">{apt.clinicName}</p>
+                            <div className="flex items-center text-sm font-medium">
+                              <Calendar className="w-4 h-4 mr-1 text-teal-600" />
+                              <span className="mr-3">{apt.date}</span>
+                              <Clock className="w-4 h-4 mr-1 text-teal-600" />
+                              <span>{apt.time}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                          <Badge 
+                            variant="outline"
+                            className={`justify-center py-1 ${
+                              apt.status === 'booked' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                              apt.status === 'checked-in' ? 'bg-green-50 text-green-700 border-green-200' :
+                              apt.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
+                              'bg-gray-50 text-gray-700 border-gray-200'
+                            }`}
+                          >
+                            {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
+                          </Badge>
+                          
+                          {apt.status === 'booked' && (
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="outline" 
+                                className="w-full sm:w-auto border-red-200 text-red-600 hover:bg-red-50"
+                                onClick={() => {
+                                  setAppointments(prev => prev.map(a => a.id === apt.id ? { ...a, status: 'cancelled' } : a));
+                                  toast.success('Appointment cancelled');
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
+                                className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white"
+                                onClick={() => {
+                                  setAppointments(prev => prev.map(a => a.id === apt.id ? { ...a, status: 'checked-in' } : a));
+                                  toast.success('Checked in successfully!');
+                                  // Find doctor/clinic to join queue
+                                  const doctor = nearbyClinics.find(c => c.id === apt.clinicId)?.doctors.find(d => d.id === apt.doctorId);
+                                  const clinic = nearbyClinics.find(c => c.id === apt.clinicId);
+                                  if (doctor && clinic) {
+                                    handleJoinQueue(doctor, clinic);
+                                  }
+                                }}
+                              >
+                                Check In
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <Calendar className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <h3 className="text-lg font-semibold mb-2">No Appointments Yet</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Book an appointment with a clinic to see it here.
+                    </p>
+                    <Button onClick={() => setActiveTab('clinics')} className="bg-teal-600 hover:bg-teal-700">
+                      Find Clinics
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
           {activeTab === 'queue' && (
             <div className="space-y-6">
               <div>
@@ -675,7 +818,7 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-3 gap-6 mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                       <div className="text-center p-4 bg-muted rounded-lg">
                         <p className="text-sm text-muted-foreground mb-1">Token Number</p>
                         <p className="text-3xl font-bold">{queueStatus.token}</p>
@@ -800,92 +943,202 @@ export function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
               </Alert>
             )}
             
-            {/* Clinic Info - More prominent */}
-            <div className="grid grid-cols-2 gap-4 p-6 bg-gradient-to-br from-muted/50 to-muted rounded-xl border-2 border-border">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-background rounded-lg flex items-center justify-center">
-                  <Phone className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+            {/* Show Booking View if doctor selected, else show Clinic Details */}
+            {selectedDoctorForBooking ? (
+              <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <Button variant="ghost" className="mb-2 -ml-2" onClick={() => { setSelectedDoctorForBooking(null); setSelectedSlot(null); }}>
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Back to Clinic
+                </Button>
+                
+                <div className="flex items-center space-x-4 p-4 bg-muted/30 rounded-xl border border-border">
+                  <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/50 rounded-full flex items-center justify-center">
+                    <Stethoscope className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">{selectedDoctorForBooking.name}</h3>
+                    <p className="text-sm text-muted-foreground">{selectedDoctorForBooking.specialization}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Phone</p>
-                  <p className="text-sm font-semibold">{selectedClinic?.contactNumber}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-background rounded-lg flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Hours</p>
-                  <p className="text-sm font-semibold">{selectedClinic?.operatingHours}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-background rounded-lg flex items-center justify-center">
-                  <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Rating</p>
-                  <p className="text-sm font-semibold">{selectedClinic?.rating.toFixed(1)} / 5.0</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-background rounded-lg flex items-center justify-center">
-                  <Car className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Distance</p>
-                  <p className="text-sm font-semibold">{selectedClinic?.distance.toFixed(1)} km • {selectedClinic?.travelTime} min</p>
-                </div>
-              </div>
-            </div>
 
-            {/* Doctors List - More subtle */}
-            {selectedClinic?.isRegistered && selectedClinic.doctors.length > 0 && (
-              <div>
-                <div className="mb-4 pb-3 border-b border-border">
-                  <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wide">
-                    Available Doctors ({selectedClinic.doctors.length})
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">Select a doctor to join their queue</p>
-                </div>
-                <div className="space-y-2">
-                  {selectedClinic.doctors.map((doctor) => (
-                    <div 
-                      key={doctor.id} 
-                      className="flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border rounded-lg transition-all group"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-teal-100/50 dark:bg-teal-900/30 rounded-full flex items-center justify-center group-hover:bg-teal-100 dark:group-hover:bg-teal-900/50 transition-colors">
-                          <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-sm">{doctor.name}</h4>
-                          <p className="text-xs text-muted-foreground">{doctor.specialization}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            <Clock className="w-3 h-3 inline mr-1" />
-                            {doctor.availability}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-y-0 space-x-4">
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground">In Queue</p>
-                          <p className="text-sm font-semibold">{doctor.queueCount} patients</p>
-                          <p className="text-xs text-muted-foreground">~{doctor.avgWaitTime} min</p>
-                        </div>
-                        <Button 
-                          size="sm" 
-                          className="bg-teal-600 hover:bg-teal-700 text-white"
-                          onClick={() => handleJoinQueue(doctor, selectedClinic!)}
+                <div>
+                  <h4 className="font-semibold mb-3">Select Date</h4>
+                  <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {[0, 1, 2, 3, 4, 5, 6].map(offset => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + offset);
+                      const dateStr = d.toISOString().split('T')[0];
+                      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+                      const dayNum = d.getDate();
+                      return (
+                        <button
+                          key={dateStr}
+                          onClick={() => { setSelectedDate(dateStr); setSelectedSlot(null); }}
+                          className={`flex-shrink-0 flex flex-col items-center justify-center w-16 h-20 rounded-xl border-2 transition-all ${
+                            selectedDate === dateStr
+                              ? 'border-teal-600 bg-teal-50 text-teal-900 dark:bg-teal-900/30 dark:text-teal-100'
+                              : 'border-transparent bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground'
+                          }`}
                         >
-                          Join Queue
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                          <span className="text-xs font-medium uppercase">{dayName}</span>
+                          <span className="text-xl font-bold">{dayNum}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                <div>
+                  <h4 className="font-semibold mb-3">Available Slots</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                    {['09:00 AM', '09:10 AM', '09:20 AM', '09:30 AM', '09:40 AM', '09:50 AM', '10:00 AM', '10:10 AM', '10:20 AM', '10:30 AM', '10:40 AM', '10:50 AM'].map((time, i) => {
+                      const isPast = i < 2 && selectedDate === new Date().toISOString().split('T')[0];
+                      const isBooked = i === 4 || i === 7;
+                      const isAvailable = !isPast && !isBooked;
+                      return (
+                        <button
+                          key={time}
+                          disabled={!isAvailable}
+                          onClick={() => setSelectedSlot(time)}
+                          className={`p-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                            isPast ? 'bg-red-50/50 border-red-100 text-red-300 dark:bg-red-950/20 dark:border-red-900/30 dark:text-red-800 cursor-not-allowed' :
+                            isBooked ? 'bg-gray-100 border-gray-200 text-gray-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500 cursor-not-allowed' :
+                            selectedSlot === time ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                            'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 cursor-pointer'
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {selectedSlot && (
+                  <Card className="border-teal-200 dark:border-teal-800 mt-6 bg-teal-50/50 dark:bg-teal-900/10">
+                    <CardContent className="p-4">
+                      <h4 className="font-semibold mb-2">Booking Summary</h4>
+                      <div className="space-y-1 text-sm mb-4">
+                        <p className="flex justify-between"><span className="text-muted-foreground">Doctor:</span> <span className="font-medium">{selectedDoctorForBooking.name}</span></p>
+                        <p className="flex justify-between"><span className="text-muted-foreground">Date:</span> <span className="font-medium">{selectedDate}</span></p>
+                        <p className="flex justify-between"><span className="text-muted-foreground">Time:</span> <span className="font-medium">{selectedSlot}</span></p>
+                      </div>
+                      <Button 
+                        className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+                        onClick={() => {
+                          const newApt: Appointment = {
+                            id: Date.now().toString(),
+                            doctorId: selectedDoctorForBooking.id,
+                            doctorName: selectedDoctorForBooking.name,
+                            clinicId: selectedClinic!.id,
+                            clinicName: selectedClinic!.name,
+                            date: selectedDate,
+                            time: selectedSlot,
+                            status: 'booked'
+                          };
+                          setAppointments(prev => [...prev, newApt]);
+                          toast.success('Appointment booked successfully!');
+                          setShowClinicDetails(false);
+                          setSelectedDoctorForBooking(null);
+                          setSelectedSlot(null);
+                          setActiveTab('appointments');
+                        }}
+                      >
+                        Book Appointment
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
+            ) : (
+              <>
+                {/* Clinic Info - More prominent */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6 bg-gradient-to-br from-muted/50 to-muted rounded-xl border-2 border-border">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-background rounded-lg flex items-center justify-center">
+                      <Phone className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Phone</p>
+                      <p className="text-sm font-semibold">{selectedClinic?.contactNumber}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-background rounded-lg flex items-center justify-center">
+                      <Clock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Hours</p>
+                      <p className="text-sm font-semibold">{selectedClinic?.operatingHours}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-background rounded-lg flex items-center justify-center">
+                      <Star className="w-5 h-5 text-yellow-500 fill-current" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Rating</p>
+                      <p className="text-sm font-semibold">{selectedClinic?.rating.toFixed(1)} / 5.0</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-background rounded-lg flex items-center justify-center">
+                      <Car className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Distance</p>
+                      <p className="text-sm font-semibold">{selectedClinic?.distance.toFixed(1)} km • {selectedClinic?.travelTime} min</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Doctors List - More subtle */}
+                {selectedClinic?.isRegistered && selectedClinic.doctors.length > 0 && (
+                  <div>
+                    <div className="mb-4 pb-3 border-b border-border">
+                      <h3 className="text-lg font-semibold text-muted-foreground uppercase tracking-wide">
+                        Available Doctors ({selectedClinic.doctors.length})
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">Select a doctor to join their queue</p>
+                    </div>
+                    <div className="space-y-2">
+                      {selectedClinic.doctors.map((doctor) => (
+                        <div 
+                          key={doctor.id} 
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-muted/30 hover:bg-muted/60 border border-transparent hover:border-border rounded-lg transition-all group gap-4 sm:gap-0"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className="w-10 h-10 bg-teal-100/50 dark:bg-teal-900/30 rounded-full flex items-center justify-center group-hover:bg-teal-100 dark:group-hover:bg-teal-900/50 transition-colors">
+                              <Stethoscope className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-sm">{doctor.name}</h4>
+                              <p className="text-xs text-muted-foreground">{doctor.specialization}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                <Clock className="w-3 h-3 inline mr-1" />
+                                {doctor.availability}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-4 justify-between sm:justify-end w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-border">
+                            <div className="text-left sm:text-right">
+                              <p className="text-xs text-muted-foreground">In Queue</p>
+                              <p className="text-sm font-semibold">{doctor.queueCount} patients</p>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              className="bg-teal-600 hover:bg-teal-700 text-white whitespace-nowrap"
+                              onClick={() => setSelectedDoctorForBooking(doctor)}
+                            >
+                              Book Slots
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </DialogContent>

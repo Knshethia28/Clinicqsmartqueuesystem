@@ -23,7 +23,9 @@ import {
   GripVertical,
   UserPlus,
   Edit,
-  Trash2
+  Trash2,
+  Menu,
+  X
 } from 'lucide-react';
 
 interface User {
@@ -133,6 +135,9 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showAddDoctorDialog, setShowAddDoctorDialog] = useState(false);
   const [showWalkInDialog, setShowWalkInDialog] = useState(false);
+  const [showAvailabilityDialog, setShowAvailabilityDialog] = useState(false);
+  const [availabilityDoctorId, setAvailabilityDoctorId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Form states
   const [newDoctor, setNewDoctor] = useState({ name: '', specialization: '', availability: '' });
@@ -320,9 +325,17 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
   return (
     <div className="min-h-screen bg-background">
       {/* Header - Fixed */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border px-6 py-4">
+      <header className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border px-4 md:px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            >
+              {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
             <div className="flex items-center space-x-2">
               <div className="p-2 bg-teal-600 rounded-lg">
                 <Stethoscope className="w-5 h-5 text-white" />
@@ -359,9 +372,17 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         </div>
       </header>
 
-      <div className="flex pt-16">
-        {/* Sidebar - Fixed */}
-        <aside className="fixed left-0 top-16 bottom-0 w-64 bg-card border-r border-border overflow-y-auto">
+      <div className="flex pt-16 h-[calc(100vh)]">
+        {/* Sidebar Overlay for mobile */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-20 md:hidden" 
+            onClick={() => setIsSidebarOpen(false)}
+          />
+        )}
+        
+        {/* Sidebar */}
+        <aside className={`fixed md:sticky top-16 left-0 bottom-0 w-64 h-[calc(100vh-4rem)] bg-card border-r border-border overflow-y-auto transition-transform duration-300 z-30 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
           <nav className="p-4">
             <div className="space-y-2">
               <Button
@@ -417,7 +438,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         </aside>
 
         {/* Main Content - Scrollable */}
-        <main className="flex-1 ml-64 p-6 overflow-y-auto">
+        <main className="flex-1 w-full md:w-[calc(100%-16rem)] p-4 md:p-6 overflow-y-auto">
           {activeTab === 'home' && (
             <div className="space-y-6">
               {/* Welcome Banner */}
@@ -560,11 +581,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                               <p className="text-xs text-muted-foreground uppercase tracking-wide">Active Queue</p>
                               <p className="text-2xl font-bold">{doctor.activeQueueCount}</p>
                             </div>
-                            {doctorCurrentPatient && (
-                              <Badge className="bg-teal-600 text-white px-3 py-1">
-                                Now: {doctorCurrentPatient.name}
-                              </Badge>
-                            )}
+                            
                           </div>
                         </div>
                       );
@@ -624,16 +641,28 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             {doctor.activeQueueCount} patients
                           </Badge>
                         </div>
-                        <Button 
-                          className="w-full mt-2" 
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedDoctorId(doctor.id);
-                            setActiveTab('patients');
-                          }}
-                        >
-                          View Queue
-                        </Button>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <Button 
+                            className="w-full" 
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedDoctorId(doctor.id);
+                              setActiveTab('patients');
+                            }}
+                          >
+                            View Queue
+                          </Button>
+                          <Button 
+                            className="w-full" 
+                            variant="secondary"
+                            onClick={() => {
+                              setAvailabilityDoctorId(doctor.id);
+                              setShowAvailabilityDialog(true);
+                            }}
+                          >
+                            Set Availability
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -908,6 +937,64 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
             </Button>
             <Button onClick={handleAddWalkIn} className="bg-teal-600 hover:bg-teal-700">
               Add Patient
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Availability Dialog */}
+      <Dialog open={showAvailabilityDialog} onOpenChange={setShowAvailabilityDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Set Doctor Availability</DialogTitle>
+            <DialogDescription>
+              Configure working hours and slot durations.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Working Days</Label>
+              <div className="flex flex-wrap gap-2">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                  <Badge key={day} variant={['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(day) ? "default" : "outline"} className={['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(day) ? "bg-teal-600" : "cursor-pointer"}>
+                    {day}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startTime">Start Time</Label>
+                <Input id="startTime" type="time" defaultValue="09:00" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endTime">End Time</Label>
+                <Input id="endTime" type="time" defaultValue="17:00" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="slotDuration">Slot Duration</Label>
+              <select 
+                id="slotDuration"
+                className="w-full px-3 py-2 border border-border rounded-md bg-background"
+                defaultValue="10"
+              >
+                <option value="10">10 mins</option>
+                <option value="15">15 mins</option>
+                <option value="20">20 mins</option>
+                <option value="30">30 mins</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAvailabilityDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              toast.success('Availability updated');
+              setShowAvailabilityDialog(false);
+            }} className="bg-teal-600 hover:bg-teal-700">
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
